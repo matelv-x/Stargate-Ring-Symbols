@@ -2,6 +2,8 @@
 
 Patch-based add-on for the Retro web interface. It adds SG-1 ring symbols and ring-position animation to Retro dial pages.
 
+<img width="3456" height="2060" alt="image" src="https://github.com/user-attachments/assets/bd1f4bc5-c810-4982-8c7b-2452e6fe3d1a" />
+
 ## Install
 
 ## Method 1 — GitHub Clone (Recommended)
