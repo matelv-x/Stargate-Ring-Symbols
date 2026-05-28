@@ -4,12 +4,25 @@ Patch-based add-on for the Retro web interface. It adds SG-1 ring symbols and ri
 
 ## Install
 
-Clone or unzip this add-on into `/home/pi`, then run:
+## Method 1 — GitHub Clone (Recommended)
 
 ```bash
 cd /home/pi
 rm -rf Stargate-Ring-Symbols
 git clone https://github.com/matelv-x/Stargate-Ring-Symbols.git
+cd Stargate-Ring-Symbols
+chmod +x apply-ring-symbols-upgrade.sh restore.sh
+sudo ./apply-ring-symbols-upgrade.sh /home/pi/sg1_v4/web
+sudo systemctl restart stargate.service
+```
+## Method 2 — ZIP Download
+
+Download and extract the ZIP archive into:
+```bash
+/home/pi/Stargate-Ring-Symbols
+```
+Then run:
+```bash
 cd Stargate-Ring-Symbols
 chmod +x apply-ring-symbols-upgrade.sh restore.sh
 sudo ./apply-ring-symbols-upgrade.sh /home/pi/sg1_v4/web
