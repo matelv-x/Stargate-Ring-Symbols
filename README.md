@@ -1,6 +1,6 @@
-# Stargate Ring Symbols Patch Upgrade
+# Stargate Ring Symbols Overlay Upgrade
 
-Patch-based add-on for the Retro web interface. It adds SG-1 ring symbols and ring-position animation to Retro dial pages.
+Surgical overlay add-on for the Retro web interface. It adds SG-1 ring symbols and ring-position animation to Retro dial pages.
 
 <img width="3456" height="2060" alt="image" src="https://github.com/user-attachments/assets/bd1f4bc5-c810-4982-8c7b-2452e6fe3d1a" />
 
@@ -41,9 +41,9 @@ sudo systemctl restart stargate.service
 
 ## What it changes
 
-- Patches `retro/dial.html`.
-- Patches `retro/dial9.html`.
-- Patches `retro/js/dial.js`.
+- Updates only its own marked blocks inside `retro/dial.html`, `retro/dial9.html`, and `retro/js/dial.js`.
+- Preserves Wormhole GIF and other additions already present in those files.
+- Creates a timestamped backup before every install or removal.
 - Does not patch classic `web/symbol_overview.htm`.
 - Adds auto visual home parking: when Retro sees the gate return to idle with no outgoing or incoming address buffer and no active wormhole, the visual ring parks `ring_position = 0`, meaning the Earth symbol is shown at 12 o'clock. This also covers aborted or incomplete dialing after the backend clears the buffers.
 
@@ -55,4 +55,3 @@ https://github.com/polklabs/stargate-retro
 matelv-x/Codex modification: this repository adds SG-1 ring symbols and ring-position animation patches on top of the Polklabs Retro UI integration.
 
 How much is copied or changed: Medium Retro UI patch. It ships patch files and an installer, not full replacement Retro pages.
-

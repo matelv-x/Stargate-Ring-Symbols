@@ -1,0 +1,147 @@
+    <script>
+      (function () {
+        const centerX = 336.5;
+        const centerY = 335.5;
+        const ringRadius = 266.25;
+        const symbolBox = 18;
+        const symbolCount = 39;
+        const ringStepsPerRevolution = 1250;
+        const symbolStepPositions = {
+          1: 0,
+          2: 32,
+          3: 64,
+          4: 96,
+          5: 128,
+          6: 160,
+          7: 192,
+          8: 224,
+          9: 256,
+          10: 288,
+          11: 320,
+          12: 352,
+          13: 384,
+          14: 416,
+          15: 448,
+          16: 480,
+          17: 512,
+          18: 544,
+          19: 576,
+          20: 608,
+          21: 640,
+          22: 672,
+          23: 704,
+          24: 736,
+          25: 768,
+          26: 800,
+          27: 832,
+          28: 864,
+          29: 896,
+          30: 928,
+          31: 960,
+          32: 992,
+          33: 1024,
+          34: 1056,
+          35: 1088,
+          36: 1120,
+          37: 1152,
+          38: 1184,
+          39: 1216,
+        };
+
+        function symbolIndexToAngle(symbolIndex) {
+          const stepPosition = symbolStepPositions[Number(symbolIndex)];
+          if (!Number.isFinite(stepPosition)) return 0;
+          return (stepPosition / ringStepsPerRevolution) * 360;
+        }
+
+        function getRingPoint(angleDegrees, radius) {
+          const angleRadians = (angleDegrees * Math.PI) / 180;
+          return {
+            x: centerX + radius * Math.sin(angleRadians),
+            y: centerY - radius * Math.cos(angleRadians),
+          };
+        }
+
+        function getSymbolSize(svgText) {
+          const viewBoxMatch = svgText.match(/viewBox=["']([^"']+)["']/i);
+          if (viewBoxMatch) {
+            const parts = viewBoxMatch[1].trim().split(/[\s,]+/).map(Number);
+            if (parts.length === 4 && parts.every(Number.isFinite)) {
+              return {x: parts[0], y: parts[1], width: parts[2], height: parts[3]};
+            }
+          }
+          return {x: 0, y: 0, width: 64, height: 64};
+        }
+
+        function getSvgInner(svgText) {
+          return svgText
+            .replace(/<\?xml[\s\S]*?\?>/gi, '')
+            .replace(/<!DOCTYPE[\s\S]*?>/gi, '')
+            .replace(/<svg[^>]*>/i, '')
+            .replace(/<\/svg>/i, '');
+        }
+
+        function resolveImagePath(imageSrc) {
+          if (!imageSrc) return '';
+          if (imageSrc.startsWith('http://') || imageSrc.startsWith('https://')) return imageSrc;
+          if (imageSrc.startsWith('/')) return '..' + imageSrc;
+          return imageSrc;
+        }
+
+        async function loadGateRingSymbols() {
+          const ringSvg = document.querySelector('.gate.ring-3 svg');
+          if (!ringSvg || ringSvg.querySelector('.sg1-ring-glyph-layer')) return;
+
+          const response = await fetch('/stargate/get/symbols_all');
+          if (!response.ok) return;
+
+          const symbols = (await response.json())
+            .filter(symbol => symbol && symbol.imageSrc)
+            .sort((a, b) => Number(a.index) - Number(b.index))
+            .slice(0, symbolCount);
+
+          const glyphLayer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          glyphLayer.setAttribute('class', 'sg1-ring-glyph-layer');
+          ringSvg.appendChild(glyphLayer);
+
+          for (let i = 0; i < symbols.length; i++) {
+            const symbol = symbols[i];
+
+            // Use the real backend SG1 ring mapping from symbol_ring.py.
+            // 1250 ring steps = full revolution.
+            // Symbol 1 / Earth = step 0 = 12 o'clock.
+            // Symbols increase clockwise/right in steps of 32.
+            const angle = symbolIndexToAngle(symbol.index);
+            const point = getRingPoint(angle, ringRadius);
+            const imagePath = resolveImagePath(symbol.imageSrc);
+
+            try {
+              const svgResponse = await fetch(imagePath);
+              if (!svgResponse.ok) continue;
+
+              const svgText = await svgResponse.text();
+              const size = getSymbolSize(svgText);
+              const inner = getSvgInner(svgText);
+              const scale = symbolBox / Math.max(size.width, size.height);
+
+              const glyph = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+              glyph.setAttribute('class', `sg1-ring-glyph sg1-ring-glyph-${symbol.index}`);
+              glyph.setAttribute(
+                'transform',
+                `translate(${point.x} ${point.y}) rotate(${angle}) scale(${scale}) translate(${-size.x - size.width / 2} ${-size.y - size.height / 2})`,
+              );
+              glyph.innerHTML = inner;
+              glyphLayer.appendChild(glyph);
+            } catch (error) {
+              console.warn('Failed to load Stargate ring glyph:', symbol, error);
+            }
+          }
+        }
+
+        window.addEventListener('DOMContentLoaded', function () {
+          loadGateRingSymbols().catch(error => {
+            console.warn('Failed to load Stargate ring symbols:', error);
+          });
+        });
+      })();
+    </script>
