@@ -23,6 +23,26 @@ function getStatusArray(name) {
   return Array.isArray(gateStatus[name]) ? gateStatus[name] : [];
 }
 
+function symbolIndexToRingPosition(symbolIndex) {
+  const index = Number(symbolIndex);
+
+  if (!Number.isFinite(index) || index < 1 || index > 39) {
+    return null;
+  }
+
+  return (index - 1) * 32;
+}
+
+function getIncomingVisualRingPosition() {
+  const incoming = getStatusArray('address_buffer_incoming');
+
+  if (incoming.length === 0) {
+    return null;
+  }
+
+  return symbolIndexToRingPosition(incoming[incoming.length - 1]);
+}
+
 function shouldParkVisualRingAtHome() {
   const noOutgoing = getStatusArray('address_buffer_outgoing').length === 0;
   let noIncoming = getStatusArray('address_buffer_incoming').length === 0;
@@ -77,4 +97,3 @@ function setRingToPosition(ringPosition, animate = true) {
   ring3.style.transform = `rotate(${targetAngle}deg)`;
   lastGateRotation = targetAngle;
 }
-

@@ -14,6 +14,13 @@ function trySpinning() {
     return;
   }
 
+  // Incoming dialing does not move the physical motor. Rotate the Retro ring
+  // to the received symbol so the web display mirrors an outgoing dial.
+  const incomingRingPos = getIncomingVisualRingPosition();
+  if (incomingRingPos !== null) {
+    currentRingPos = incomingRingPos;
+  }
+
   // When the gate is idle, show the visual ring parked at Earth / 12 o'clock.
   // This fixes refresh after an aborted/cleared dial where backend ring_position
   // may still contain the last physical motor position.
@@ -45,10 +52,10 @@ function stopSpinning(el) {
   // Kept for compatibility with older custom code.
   // The ring no longer uses endless CSS spinning here.
   if (gateStatus.ring_position !== undefined && gateStatus.ring_position !== null) {
+    const incomingRingPos = getIncomingVisualRingPosition();
     const ringPosition = shouldParkVisualRingAtHome()
       ? VISUAL_HOME_RING_POSITION
-      : gateStatus.ring_position;
+      : incomingRingPos ?? gateStatus.ring_position;
     setRingToPosition(ringPosition, true);
   }
 }
-

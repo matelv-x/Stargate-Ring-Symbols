@@ -35,14 +35,27 @@ def replace_ring_svg(text, svg):
 
 def install_html(path):
     text = path.read_text(encoding="utf-8", errors="replace").replace("\r\n", "\n")
-    if "SG-1 ring-3 real 39 segment ring + glyphs" not in text:
+    style_pattern = re.compile(
+        r'    <style>\s*/\* SG-1 ring-3 real 39 segment ring \+ glyphs \*/[\s\S]*?</style>\n',
+        re.I,
+    )
+    if style_pattern.search(text):
+        text = style_pattern.sub(style + "\n", text, count=1)
+    else:
         marker = '    <link rel="preconnect" href="https://fonts.googleapis.com" />'
         if marker not in text:
             fail(f"cannot find style insertion point in {path}")
         text = text.replace(marker, style + "\n" + marker, 1)
     if 'class="sg1-ring-segment"' not in text:
         text = replace_ring_svg(text, ring_svg)
-    if "loadGateRingSymbols()" not in text:
+    loader_pattern = re.compile(
+        r'    <script>\s*\(function \(\) \{\s*const centerX = 336\.5;[\s\S]*?</script>\n'
+        r'(?=    <script type="module" src="js/startup\.js"></script>)',
+        re.I,
+    )
+    if loader_pattern.search(text):
+        text = loader_pattern.sub(lambda _match: loader, text, count=1)
+    else:
         marker = '    <script type="module" src="js/startup.js"></script>'
         if marker not in text:
             fail(f"cannot find script insertion point in {path}")
@@ -57,7 +70,12 @@ def install_html(path):
 
 def install_js(path):
     text = path.read_text(encoding="utf-8", errors="replace").replace("\r\n", "\n")
-    if "const RING_STEPS_PER_REVOLUTION = 1250;" not in text:
+    helpers_pattern = re.compile(
+        r"// Backend Stargate logic:[\s\S]*?(?=\n\nlet lockedGlyphs = \{\};)",
+    )
+    if helpers_pattern.search(text):
+        text = helpers_pattern.sub(helpers.rstrip(), text, count=1)
+    else:
         marker = "let lastGateRotation = 0;\n"
         if marker not in text:
             fail(f"cannot find ring helper insertion point in {path}")
@@ -68,6 +86,16 @@ def install_js(path):
     if not pattern.search(text):
         fail(f"cannot find Retro ring animation block in {path}")
     text = pattern.sub(spinning, text, count=1)
+    text = text.replace(
+        "buffer.length > bufferIndex &&\n      gateStatus.address_buffer_incoming.length <= 0",
+        "buffer.length > bufferIndex",
+        1,
+    )
+    text = text.replace(
+        "if (bufferIndex < 9 && gateStatus.address_buffer_incoming.length <= 0) {",
+        "if (bufferIndex < 9) {",
+        1,
+    )
     write_if_changed(path, text)
 
 
