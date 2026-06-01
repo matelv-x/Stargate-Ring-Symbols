@@ -4,6 +4,12 @@ function trySpinning() {
     return;
   }
 
+  // Incoming calls do not move the Retro ring. Keep its current visual
+  // position while chevrons and received symbols continue to update.
+  if (getStatusArray('address_buffer_incoming').length > 0) {
+    return;
+  }
+
   if (gateStatus.ring_position === undefined || gateStatus.ring_position === null) {
     return;
   }
@@ -44,6 +50,10 @@ function trySpinning() {
 function stopSpinning(el) {
   // Kept for compatibility with older custom code.
   // The ring no longer uses endless CSS spinning here.
+  if (getStatusArray('address_buffer_incoming').length > 0) {
+    return;
+  }
+
   if (gateStatus.ring_position !== undefined && gateStatus.ring_position !== null) {
     const ringPosition = shouldParkVisualRingAtHome()
       ? VISUAL_HOME_RING_POSITION
