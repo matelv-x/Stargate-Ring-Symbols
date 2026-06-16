@@ -113,12 +113,31 @@ def install_js(path):
   glyph.style.height = `${size}px`;
 }
 
+function lockGlyphInBox(glyph) {
+  if (!glyph) return;
+
+  glyph.style.left = '';
+  glyph.style.top = '';
+  glyph.style.width = '';
+  glyph.style.height = '';
+  glyph.classList.add('locked');
+}
+
 """
-    if "function centerGlyphInRing(glyph)" not in text:
+    center_pattern = re.compile(
+        r"\n?function centerGlyphInRing\(glyph\) \{[\s\S]*?\n\}\n"
+        r"(?:\nfunction lockGlyphInBox\(glyph\) \{[\s\S]*?\n\}\n)?\n"
+        r"(?=function dial\(\) \{)",
+    )
+    if center_pattern.search(text):
+        text = center_pattern.sub("\n" + center_helper, text, count=1)
+    else:
         marker = "function dial() {"
         if marker not in text:
             fail(f"cannot find glyph centering insertion point in {path}")
         text = text.replace(marker, center_helper + marker, 1)
+    text = text.replace("newGlyph.classList.add('locked')", "lockGlyphInBox(newGlyph)")
+    text = text.replace("newGlyph2.classList.add('locked')", "lockGlyphInBox(newGlyph2)")
     append_variants = (
         (
             "  appendTarget.append(newGlyph2);\n"
@@ -152,6 +171,11 @@ def remove_html(path):
     text = text.replace(style + "\n", "")
     text = text.replace(style, "")
     text = text.replace(loader, "")
+    text = re.sub(
+        r'js/dial\.js\?v=ring-symbols-overlay-[^"\']+',
+        "js/dial.js",
+        text,
+    )
     if 'class="sg1-ring-segment"' in text:
         text = replace_ring_svg(text, base_ring_svg)
     write_if_changed(path, text)
@@ -166,6 +190,16 @@ def remove_js(path):
         text,
         count=1,
     )
+    text = re.sub(
+        r"\n?function centerGlyphInRing\(glyph\) \{[\s\S]*?\n\}\n"
+        r"(?:\nfunction lockGlyphInBox\(glyph\) \{[\s\S]*?\n\}\n)?\n"
+        r"(?=function dial\(\) \{)",
+        "\n",
+        text,
+        count=1,
+    )
+    text = text.replace("lockGlyphInBox(newGlyph)", "newGlyph.classList.add('locked')")
+    text = text.replace("lockGlyphInBox(newGlyph2)", "newGlyph2.classList.add('locked')")
     text = text.replace(
         "  centerGlyphInRing(newGlyph);\n"
         "  centerGlyphInRing(newGlyph2);\n",
