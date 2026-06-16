@@ -107,8 +107,8 @@ def install_js(path):
   const centerX = ringRect.left - hostRect.left + ringRect.width / 2;
   const centerY = ringRect.top - hostRect.top + ringRect.height / 2;
 
-  glyph.style.left = `${centerX}px`;
-  glyph.style.top = `${centerY}px`;
+  glyph.style.left = `${centerX - size / 2}px`;
+  glyph.style.top = `${centerY - size / 2}px`;
   glyph.style.width = `${size}px`;
   glyph.style.height = `${size}px`;
 }

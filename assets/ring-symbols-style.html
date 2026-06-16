@@ -34,12 +34,8 @@
         stroke: none !important;
       }
 
-      /* Keep the dialing glyph centered inside the ring on every viewport size. */
-      .dial-append div.glyph:not(.locked) {
-        transform: translate(-50%, -50%) translateZ(0);
-        transform-origin: center center;
-      }
-
+      /* The dialing glyph center is calculated in the dial script so Retro's reveal
+         animation can keep owning transform. */
       .dial-append div.glyph:not(.locked) svg {
         width: 100%;
         height: 100%;
