@@ -96,6 +96,54 @@ def install_js(path):
         "if (bufferIndex < 9) {",
         1,
     )
+    center_helper = """function centerGlyphInRing(glyph) {
+  const ringHost = document.querySelector('.ring-1');
+  const appendHost = appendTarget;
+  if (!ringHost || !appendHost || !glyph) return;
+
+  const ringRect = ringHost.getBoundingClientRect();
+  const hostRect = appendHost.getBoundingClientRect();
+  const size = Math.min(ringRect.width, ringRect.height) * 0.34;
+  const centerX = ringRect.left - hostRect.left + ringRect.width / 2;
+  const centerY = ringRect.top - hostRect.top + ringRect.height / 2;
+
+  glyph.style.left = `${centerX}px`;
+  glyph.style.top = `${centerY}px`;
+  glyph.style.width = `${size}px`;
+  glyph.style.height = `${size}px`;
+}
+
+"""
+    if "function centerGlyphInRing(glyph)" not in text:
+        marker = "function dial() {"
+        if marker not in text:
+            fail(f"cannot find glyph centering insertion point in {path}")
+        text = text.replace(marker, center_helper + marker, 1)
+    append_variants = (
+        (
+            "  appendTarget.append(newGlyph2);\n"
+            "  appendTarget.append(newGlyph);\n",
+            "  appendTarget.append(newGlyph2);\n"
+            "  appendTarget.append(newGlyph);\n"
+            "  centerGlyphInRing(newGlyph);\n"
+            "  centerGlyphInRing(newGlyph2);\n",
+        ),
+        (
+            "  appendTarget.append(newGlyph);\n"
+            "  appendTarget.append(newGlyph2);\n",
+            "  appendTarget.append(newGlyph);\n"
+            "  appendTarget.append(newGlyph2);\n"
+            "  centerGlyphInRing(newGlyph);\n"
+            "  centerGlyphInRing(newGlyph2);\n",
+        ),
+    )
+    if "centerGlyphInRing(newGlyph);" not in text:
+        for old, new in append_variants:
+            if old in text:
+                text = text.replace(old, new, 1)
+                break
+        else:
+            fail(f"cannot find glyph append point in {path}")
     write_if_changed(path, text)
 
 
@@ -112,6 +160,17 @@ def remove_html(path):
 def remove_js(path):
     text = path.read_text(encoding="utf-8", errors="replace")
     text = text.replace(helpers, "")
+    text = re.sub(
+        r"\n?function centerGlyphInRing\(glyph\) \{[\s\S]*?\n\}\n\n(?=function dial\(\) \{)",
+        "",
+        text,
+        count=1,
+    )
+    text = text.replace(
+        "  centerGlyphInRing(newGlyph);\n"
+        "  centerGlyphInRing(newGlyph2);\n",
+        "",
+    )
     pattern = re.compile(
         r"// That's a neat trick\nfunction trySpinning\(\) \{[\s\S]*?(?=async function dhd_press)",
     )
