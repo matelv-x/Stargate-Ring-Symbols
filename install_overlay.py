@@ -97,8 +97,9 @@ def install_js(path):
         1,
     )
     center_helper = """function centerGlyphInRing(glyph) {
-  const ringHost = document.querySelector('.ring-1');
   const appendHost = appendTarget;
+  const ringCircle = document.querySelector('.ring-1 svg .sg1-ring-border');
+  const ringHost = ringCircle || document.querySelector('.ring-1 svg') || document.querySelector('.ring-1');
   if (!ringHost || !appendHost || !glyph) return;
 
   const ringRect = ringHost.getBoundingClientRect();
