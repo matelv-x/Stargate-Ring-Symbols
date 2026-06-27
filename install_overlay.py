@@ -96,7 +96,14 @@ def install_js(path):
         "if (bufferIndex < 9) {",
         1,
     )
-    center_helper = """function centerGlyphInRing(glyph) {
+    center_helper = """function shouldDisplayIncomingGlyphs() {
+  return (
+    gateStatus.address_buffer_incoming.length === 0 ||
+    window.retroVisuals?.shouldDisplayIncomingSymbols?.() !== false
+  );
+}
+
+function centerGlyphInRing(glyph) {
   const appendHost = appendTarget;
   const ringCircle = document.querySelector('.ring-1 svg .sg1-ring-border');
   const ringHost = ringCircle || document.querySelector('.ring-1 svg') || document.querySelector('.ring-1');
@@ -117,16 +124,29 @@ def install_js(path):
 function lockGlyphInBox(glyph) {
   if (!glyph) return;
 
+  let audioStopped = false;
+  const stopGlyphAudio = () => {
+    if (audioStopped) return;
+    audioStopped = true;
+    notifyBrowserAudio('glyphLandedInBox');
+  };
+
+  glyph.addEventListener('transitionend', stopGlyphAudio, {once: true});
+
   glyph.style.left = '';
   glyph.style.top = '';
   glyph.style.width = '';
   glyph.style.height = '';
   glyph.classList.add('locked');
+
+  // Fallback for browsers/styles that do not emit transitionend here.
+  setTimeout(stopGlyphAudio, gateStatus.address_buffer_incoming.length > 0 ? 760 : 1150);
 }
 
 """
     center_pattern = re.compile(
-        r"\n?function centerGlyphInRing\(glyph\) \{[\s\S]*?\n\}\n"
+        r"\n?(?:function shouldDisplayIncomingGlyphs\(\) \{[\s\S]*?\n\}\n\n)?"
+        r"function centerGlyphInRing\(glyph\) \{[\s\S]*?\n\}\n"
         r"(?:\nfunction lockGlyphInBox\(glyph\) \{[\s\S]*?\n\}\n)?\n"
         r"(?=function dial\(\) \{)",
     )
@@ -186,7 +206,8 @@ def remove_js(path):
     text = path.read_text(encoding="utf-8", errors="replace")
     text = text.replace(helpers, "")
     text = re.sub(
-        r"\n?function centerGlyphInRing\(glyph\) \{[\s\S]*?\n\}\n"
+        r"\n?(?:function shouldDisplayIncomingGlyphs\(\) \{[\s\S]*?\n\}\n\n)?"
+        r"function centerGlyphInRing\(glyph\) \{[\s\S]*?\n\}\n"
         r"(?:\nfunction lockGlyphInBox\(glyph\) \{[\s\S]*?\n\}\n)?\n"
         r"(?=function dial\(\) \{)",
         "\n",

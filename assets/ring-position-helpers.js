@@ -3,7 +3,15 @@
 // ring_position 0 = Earth at Top Dead Center.
 const RING_STEPS_PER_REVOLUTION = 1250;
 const VISUAL_HOME_RING_POSITION = 0;
-const RING_DEGREES_PER_SECOND = 120;
+const RING_MOTOR_MAX_DEGREES_PER_SECOND = 95;
+const RING_MOTOR_ACCELERATION = 220;
+const RING_ARRIVAL_EPSILON_DEGREES = 0.08;
+const RING_ARRIVAL_EPSILON_VELOCITY = 1.2;
+
+let visualRingAnimationFrame = null;
+let visualRingVelocity = 0;
+let visualRingTargetAngle = 0;
+let visualRingLastFrameTime = null;
 
 function normalizeDegrees(deg) {
   return ((deg % 360) + 360) % 360;
@@ -17,6 +25,26 @@ function ringPositionToDegrees(ringPosition) {
   }
 
   return normalizeDegrees((pos / RING_STEPS_PER_REVOLUTION) * 360);
+}
+
+function shortestRingDelta(targetAngle, currentAngle) {
+  return ((targetAngle - normalizeDegrees(currentAngle) + 540) % 360) - 180;
+}
+
+function stopVisualRingMotor() {
+  if (visualRingAnimationFrame !== null) {
+    window.cancelAnimationFrame(visualRingAnimationFrame);
+    visualRingAnimationFrame = null;
+  }
+
+  visualRingLastFrameTime = null;
+  visualRingVelocity = 0;
+}
+
+function setVisualRingAngle(angle) {
+  ring3.style.transition = 'none';
+  ring3.style.transform = `rotate(${angle}deg)`;
+  lastGateRotation = angle;
 }
 
 function getStatusArray(name) {
@@ -66,34 +94,70 @@ function setRingToPosition(ringPosition, animate = true) {
   ring3.classList.remove('slow-rotate');
   ring3.style.rotate = '';
 
-  let currentAngle = lastGateRotation;
-
-  let delta = finalAngle - currentAngle;
-
-  // Use shortest path: -180° to +180°
-
-  if (delta > 180) {
-
-    delta -= 360;
-
-  } else if (delta < -180) {
-
-    delta += 360;
-
-  }
-
+  const currentAngle = lastGateRotation;
+  const delta = shortestRingDelta(finalAngle, currentAngle);
   const targetAngle = currentAngle + delta;
 
-  if (animate) {
+  visualRingTargetAngle = targetAngle;
 
-    const degreesToTravel = Math.abs(delta);
-    const durationSeconds = degreesToTravel / RING_DEGREES_PER_SECOND;
-
-    ring3.style.transition = `transform ${durationSeconds}s linear`;
-  } else {
-    ring3.style.transition = 'none';
+  if (!animate || Math.abs(delta) <= RING_ARRIVAL_EPSILON_DEGREES) {
+    stopVisualRingMotor();
+    setVisualRingAngle(targetAngle);
+    return;
   }
 
-  ring3.style.transform = `rotate(${targetAngle}deg)`;
-  lastGateRotation = targetAngle;
+  if (visualRingAnimationFrame === null) {
+    visualRingLastFrameTime = null;
+    visualRingAnimationFrame = window.requestAnimationFrame(updateVisualRingMotor);
+  }
+}
+
+function updateVisualRingMotor(timestamp) {
+  if (visualRingLastFrameTime === null) {
+    visualRingLastFrameTime = timestamp;
+  }
+
+  const dt = Math.min((timestamp - visualRingLastFrameTime) / 1000, 0.05);
+  visualRingLastFrameTime = timestamp;
+
+  const delta = visualRingTargetAngle - lastGateRotation;
+  const distance = Math.abs(delta);
+  const direction = Math.sign(delta) || 1;
+  const speed = Math.abs(visualRingVelocity);
+
+  if (
+    distance <= RING_ARRIVAL_EPSILON_DEGREES &&
+    speed <= RING_ARRIVAL_EPSILON_VELOCITY
+  ) {
+    setVisualRingAngle(visualRingTargetAngle);
+    stopVisualRingMotor();
+    return;
+  }
+
+  const stoppingDistance = (speed * speed) / (2 * RING_MOTOR_ACCELERATION);
+  let accelerationDirection = direction;
+
+  if (speed > RING_ARRIVAL_EPSILON_VELOCITY && Math.sign(visualRingVelocity) !== direction) {
+    accelerationDirection = direction;
+  } else if (stoppingDistance >= distance) {
+    accelerationDirection = -Math.sign(visualRingVelocity || direction);
+  }
+
+  visualRingVelocity += accelerationDirection * RING_MOTOR_ACCELERATION * dt;
+
+  if (Math.abs(visualRingVelocity) > RING_MOTOR_MAX_DEGREES_PER_SECOND) {
+    visualRingVelocity = Math.sign(visualRingVelocity) * RING_MOTOR_MAX_DEGREES_PER_SECOND;
+  }
+
+  const nextAngle = lastGateRotation + visualRingVelocity * dt;
+  const nextDelta = visualRingTargetAngle - nextAngle;
+
+  if (Math.sign(nextDelta) !== direction && Math.abs(nextDelta) < 1.4) {
+    setVisualRingAngle(visualRingTargetAngle);
+    stopVisualRingMotor();
+    return;
+  }
+
+  setVisualRingAngle(nextAngle);
+  visualRingAnimationFrame = window.requestAnimationFrame(updateVisualRingMotor);
 }
