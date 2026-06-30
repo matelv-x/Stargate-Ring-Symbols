@@ -82,8 +82,7 @@ function shouldParkVisualRingAtHome() {
   return (
     state === STATE_IDLE &&
     noOutgoing &&
-    noIncoming &&
-    !gateStatus.wormhole_active
+    noIncoming
   );
 }
 
