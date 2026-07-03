@@ -33,7 +33,7 @@ sudo ./apply-ring-symbols-upgrade.sh /home/pi/sg1_v4/web
 sudo systemctl restart stargate.service
 ```
 
-## Restore / uninstall
+## Restore / uninstall,
 
 ```bash
 cd /home/pi/Stargate-Ring-Symbols
@@ -41,7 +41,7 @@ sudo ./restore.sh /home/pi/sg1_v4/web
 sudo systemctl restart stargate.service
 ```
 
-## What it changes
+## What it changes,
 
 - Updates only its own marked blocks inside `retro/dial.html`, `retro/dial9.html`, and `retro/js/dial.js`.
 - Preserves Wormhole GIF and other additions already present in those files.
