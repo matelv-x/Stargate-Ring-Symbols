@@ -28,6 +28,12 @@ PY
 
 "$ROOT/apply-ring-symbols-upgrade.sh" "$TMP/web"
 grep -q 'sg1-ring-segment' "$TMP/web/retro/dial.html"
+grep -q 'transition-property: top, left, width, height' "$TMP/web/retro/dial.html"
+grep -q 'top: clamp(-100px, 20.3vmin, 203px)' "$TMP/web/retro/dial.html"
+grep -q 'transition-delay: 450ms' "$TMP/web/retro/dial.html"
+grep -q 'transition-property: top, left, width, height' "$TMP/web/retro/dial9.html"
+grep -q 'top: clamp(-100px, 20.3vmin, 203px)' "$TMP/web/retro/dial9.html"
+grep -q 'transition-delay: 450ms' "$TMP/web/retro/dial9.html"
 test "$(grep -c 'centerGlyphInRing(newGlyph)' "$TMP/web/retro/js/dial.js" || true)" -eq 0
 python3 - "$TMP/web/retro/js/dial.js" "$TMP/installed-glyph-display.js" <<'PY'
 from pathlib import Path
