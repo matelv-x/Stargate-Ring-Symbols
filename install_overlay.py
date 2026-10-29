@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 from datetime import datetime
+import hashlib
+import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -12,6 +15,112 @@ def fail(message):
 
 def load(name):
     return (assets / name).read_text(encoding="utf-8")
+
+
+def sha256(path):
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def write_json(path, payload):
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    os.replace(temporary, path)
+
+
+def prepare_install_state(files):
+    state_dir = target / ".stargate-ring-symbols-addon"
+    state_file = state_dir / "state.json"
+    if state_file.is_file():
+        state = json.loads(state_file.read_text(encoding="utf-8"))
+        if state.get("schema") != 1:
+            fail("unsupported Ring Symbols state schema")
+        for path in files:
+            key = str(path.relative_to(target))
+            original = state_dir / "originals" / key
+            if key not in state.get("files", {}) or not original.is_file():
+                fail(f"incomplete Ring Symbols state for {key}")
+        return state
+
+    state = {"schema": 1, "files": {}}
+    for path in files:
+        key = str(path.relative_to(target))
+        original = state_dir / "originals" / key
+        original.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, original)
+        state["files"][key] = {"original_sha256": sha256(original)}
+    write_json(state_file, state)
+    return state
+
+
+def record_installed_state(files, state):
+    state_dir = target / ".stargate-ring-symbols-addon"
+    for path in files:
+        key = str(path.relative_to(target))
+        state["files"][key]["installed_sha256"] = sha256(path)
+    write_json(state_dir / "state.json", state)
+
+
+def restore_recorded_state(files):
+    state_dir = target / ".stargate-ring-symbols-addon"
+    state_file = state_dir / "state.json"
+    if not state_file.is_file():
+        return False
+
+    state = json.loads(state_file.read_text(encoding="utf-8"))
+    if state.get("schema") != 1:
+        fail("unsupported Ring Symbols state schema")
+
+    restore_plan = []
+    for path in files:
+        key = str(path.relative_to(target))
+        record = state.get("files", {}).get(key)
+        original = state_dir / "originals" / key
+        if not record or not original.is_file():
+            fail(f"incomplete Ring Symbols uninstall state for {key}")
+        if sha256(original) != record.get("original_sha256"):
+            fail(f"Ring Symbols original snapshot checksum failed for {key}")
+        current_hash = sha256(path)
+        allowed = {record.get("original_sha256"), record.get("installed_sha256")}
+        if current_hash not in allowed:
+            fail(f"refusing to overwrite later changes in {key}")
+        if current_hash != record.get("original_sha256"):
+            restore_plan.append((original, path))
+
+    for original, path in restore_plan:
+        shutil.copy2(original, path)
+        print(f"Restored exact pre-install file: {path}")
+    shutil.rmtree(state_dir)
+    return True
+
+
+def restore_legacy_state(files):
+    html_files = files[:2]
+    js_file = files[2]
+    if not all("sg1-ring-segment" in path.read_text(encoding="utf-8", errors="replace") for path in html_files):
+        fail("legacy Ring Symbols markers are incomplete; no files were restored")
+    js_text = js_file.read_text(encoding="utf-8", errors="replace")
+    if "centerGlyphInRing(newGlyph)" not in js_text:
+        fail("legacy Ring Symbols JavaScript marker is missing; no files were restored")
+
+    backup_root = target / "backups"
+    for candidate in sorted(backup_root.glob("ring-symbols-overlay-*"), reverse=True):
+        originals = [candidate / path.relative_to(target) for path in files]
+        if not all(path.is_file() for path in originals):
+            continue
+        first_html = originals[0].read_text(encoding="utf-8", errors="replace")
+        second_html = originals[1].read_text(encoding="utf-8", errors="replace")
+        if "sg1-ring-segment" in first_html or "sg1-ring-segment" in second_html:
+            continue
+        for original, path in zip(originals, files):
+            shutil.copy2(original, path)
+            print(f"Restored legacy pre-install file: {path}")
+        print(f"Legacy source snapshot: {candidate}")
+        return
+    fail("no safe pre-install Ring Symbols snapshot was found")
 
 
 def write_if_changed(path, text):
@@ -270,6 +379,8 @@ for path in files:
     if not path.is_file():
         fail(f"missing file: {path}")
 
+install_state = None if remove else prepare_install_state(files)
+
 backup_base = target / "backups" / f"ring-symbols-overlay-{stamp}"
 backup = backup_base
 suffix = 1
@@ -282,7 +393,12 @@ for path in files:
     shutil.copy2(path, destination)
 print(f"Backup saved: {backup}")
 
-for path in files[:2]:
-    (remove_html if remove else install_html)(path)
-(remove_js if remove else install_js)(files[2])
+if remove:
+    if not restore_recorded_state(files):
+        restore_legacy_state(files)
+else:
+    for path in files[:2]:
+        install_html(path)
+    install_js(files[2])
+    record_installed_state(files, install_state)
 print("Ring Symbols overlay removed." if remove else "Ring Symbols overlay installed.")
