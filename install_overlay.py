@@ -206,8 +206,7 @@ def remove_js(path):
     text = path.read_text(encoding="utf-8", errors="replace")
     text = text.replace(helpers, "")
     text = re.sub(
-        r"\n?(?:function shouldDisplayIncomingGlyphs\(\) \{[\s\S]*?\n\}\n\n)?"
-        r"function centerGlyphInRing\(glyph\) \{[\s\S]*?\n\}\n"
+        r"\n?function centerGlyphInRing\(glyph\) \{[\s\S]*?\n\}\n"
         r"(?:\nfunction lockGlyphInBox\(glyph\) \{[\s\S]*?\n\}\n)?\n"
         r"(?=function dial\(\) \{)",
         "\n",
@@ -221,18 +220,22 @@ def remove_js(path):
         "  centerGlyphInRing(newGlyph2);\n",
         "",
     )
-    text = text.replace(
-        "buffer.length > bufferIndex\n    ) {",
-        "buffer.length > bufferIndex &&\n"
-        "      gateStatus.address_buffer_incoming.length <= 0\n"
-        "    ) {",
-        1,
-    )
-    text = text.replace(
-        "if (bufferIndex < 9) {",
-        "if (bufferIndex < 9 && gateStatus.address_buffer_incoming.length <= 0) {",
-        1,
-    )
+    # Retro Visuals owns shouldDisplayIncomingGlyphs and its incoming-symbol
+    # behavior. Restore the legacy guards only when that separate integration
+    # is not present.
+    if "function shouldDisplayIncomingGlyphs()" not in text:
+        text = text.replace(
+            "buffer.length > bufferIndex\n    ) {",
+            "buffer.length > bufferIndex &&\n"
+            "      gateStatus.address_buffer_incoming.length <= 0\n"
+            "    ) {",
+            1,
+        )
+        text = text.replace(
+            "if (bufferIndex < 9) {",
+            "if (bufferIndex < 9 && gateStatus.address_buffer_incoming.length <= 0) {",
+            1,
+        )
     pattern = re.compile(
         r"// That's a neat trick\nfunction trySpinning\(\) \{[\s\S]*?(?=async function dhd_press)",
     )

@@ -1,5 +1,6 @@
 {
   "maintenance_contract": 1,
+  "uninstall_contract": 2,
   "id": "stargate-ring-symbols",
   "name": "Stargate Ring Symbols",
   "repository": "matelv-x/Stargate-Ring-Symbols",
