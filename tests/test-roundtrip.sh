@@ -16,9 +16,29 @@ cp "$TMP/web/retro/dial.html" "$TMP/original/retro/dial.html"
 cp "$TMP/web/retro/dial9.html" "$TMP/original/retro/dial9.html"
 cp "$TMP/web/retro/js/dial.js" "$TMP/original/retro/js/dial.js"
 
+python3 - "$TMP/web/retro/js/dial.js" "$TMP/original/glyph-display.js" <<'PY'
+from pathlib import Path
+import sys
+
+source = Path(sys.argv[1]).read_text(encoding="utf-8")
+start = source.index("function dial() {")
+end = source.index("function lock(i) {", start)
+Path(sys.argv[2]).write_text(source[start:end], encoding="utf-8")
+PY
+
 "$ROOT/apply-ring-symbols-upgrade.sh" "$TMP/web"
 grep -q 'sg1-ring-segment' "$TMP/web/retro/dial.html"
-grep -q 'centerGlyphInRing(newGlyph)' "$TMP/web/retro/js/dial.js"
+test "$(grep -c 'centerGlyphInRing(newGlyph)' "$TMP/web/retro/js/dial.js" || true)" -eq 0
+python3 - "$TMP/web/retro/js/dial.js" "$TMP/installed-glyph-display.js" <<'PY'
+from pathlib import Path
+import sys
+
+source = Path(sys.argv[1]).read_text(encoding="utf-8")
+start = source.index("function dial() {")
+end = source.index("function lock(i) {", start)
+Path(sys.argv[2]).write_text(source[start:end], encoding="utf-8")
+PY
+cmp "$TMP/original/glyph-display.js" "$TMP/installed-glyph-display.js"
 "$ROOT/restore.sh" "$TMP/web"
 
 cmp "$TMP/original/retro/dial.html" "$TMP/web/retro/dial.html"

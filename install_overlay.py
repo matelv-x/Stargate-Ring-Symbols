@@ -99,12 +99,8 @@ def restore_recorded_state(files):
 
 def restore_legacy_state(files):
     html_files = files[:2]
-    js_file = files[2]
     if not all("sg1-ring-segment" in path.read_text(encoding="utf-8", errors="replace") for path in html_files):
         fail("legacy Ring Symbols markers are incomplete; no files were restored")
-    js_text = js_file.read_text(encoding="utf-8", errors="replace")
-    if "centerGlyphInRing(newGlyph)" not in js_text:
-        fail("legacy Ring Symbols JavaScript marker is missing; no files were restored")
 
     backup_root = target / "backups"
     for candidate in sorted(backup_root.glob("ring-symbols-overlay-*"), reverse=True):
@@ -195,104 +191,10 @@ def install_js(path):
     if not pattern.search(text):
         fail(f"cannot find Retro ring animation block in {path}")
     text = pattern.sub(spinning, text, count=1)
-    text = text.replace(
-        "buffer.length > bufferIndex &&\n      gateStatus.address_buffer_incoming.length <= 0",
-        "buffer.length > bufferIndex",
-        1,
-    )
-    text = text.replace(
-        "if (bufferIndex < 9 && gateStatus.address_buffer_incoming.length <= 0) {",
-        "if (bufferIndex < 9) {",
-        1,
-    )
-    center_helper = """function shouldDisplayIncomingGlyphs() {
-  return (
-    gateStatus.address_buffer_incoming.length === 0 ||
-    window.retroVisuals?.shouldDisplayIncomingSymbols?.() !== false
-  );
-}
-
-function centerGlyphInRing(glyph) {
-  const appendHost = appendTarget;
-  const ringCircle = document.querySelector('.ring-1 svg .sg1-ring-border');
-  const ringHost = ringCircle || document.querySelector('.ring-1 svg') || document.querySelector('.ring-1');
-  if (!ringHost || !appendHost || !glyph) return;
-
-  const ringRect = ringHost.getBoundingClientRect();
-  const hostRect = appendHost.getBoundingClientRect();
-  const size = Math.min(ringRect.width, ringRect.height) * 0.34;
-  const centerX = ringRect.left - hostRect.left + ringRect.width / 2;
-  const centerY = ringRect.top - hostRect.top + ringRect.height / 2;
-
-  glyph.style.left = `${centerX - size / 2}px`;
-  glyph.style.top = `${centerY - size / 2}px`;
-  glyph.style.width = `${size}px`;
-  glyph.style.height = `${size}px`;
-}
-
-function lockGlyphInBox(glyph) {
-  if (!glyph) return;
-
-  let audioStopped = false;
-  const stopGlyphAudio = () => {
-    if (audioStopped) return;
-    audioStopped = true;
-    notifyBrowserAudio('glyphLandedInBox');
-  };
-
-  glyph.addEventListener('transitionend', stopGlyphAudio, {once: true});
-
-  glyph.style.left = '';
-  glyph.style.top = '';
-  glyph.style.width = '';
-  glyph.style.height = '';
-  glyph.classList.add('locked');
-
-  // Fallback for browsers/styles that do not emit transitionend here.
-  setTimeout(stopGlyphAudio, gateStatus.address_buffer_incoming.length > 0 ? 760 : 1150);
-}
-
-"""
-    center_pattern = re.compile(
-        r"\n?(?:function shouldDisplayIncomingGlyphs\(\) \{[\s\S]*?\n\}\n\n)?"
-        r"function centerGlyphInRing\(glyph\) \{[\s\S]*?\n\}\n"
-        r"(?:\nfunction lockGlyphInBox\(glyph\) \{[\s\S]*?\n\}\n)?\n"
-        r"(?=function dial\(\) \{)",
-    )
-    if center_pattern.search(text):
-        text = center_pattern.sub("\n" + center_helper, text, count=1)
-    else:
-        marker = "function dial() {"
-        if marker not in text:
-            fail(f"cannot find glyph centering insertion point in {path}")
-        text = text.replace(marker, center_helper + marker, 1)
-    text = text.replace("newGlyph.classList.add('locked')", "lockGlyphInBox(newGlyph)")
-    text = text.replace("newGlyph2.classList.add('locked')", "lockGlyphInBox(newGlyph2)")
-    append_variants = (
-        (
-            "  appendTarget.append(newGlyph2);\n"
-            "  appendTarget.append(newGlyph);\n",
-            "  appendTarget.append(newGlyph2);\n"
-            "  appendTarget.append(newGlyph);\n"
-            "  centerGlyphInRing(newGlyph);\n"
-            "  centerGlyphInRing(newGlyph2);\n",
-        ),
-        (
-            "  appendTarget.append(newGlyph);\n"
-            "  appendTarget.append(newGlyph2);\n",
-            "  appendTarget.append(newGlyph);\n"
-            "  appendTarget.append(newGlyph2);\n"
-            "  centerGlyphInRing(newGlyph);\n"
-            "  centerGlyphInRing(newGlyph2);\n",
-        ),
-    )
-    if "centerGlyphInRing(newGlyph);" not in text:
-        for old, new in append_variants:
-            if old in text:
-                text = text.replace(old, new, 1)
-                break
-        else:
-            fail(f"cannot find glyph append point in {path}")
+    # Ring Symbols owns only the visual ring and its motor-position animation.
+    # Do not rewrite dial(), displayGlyph(), incoming-address guards, or glyph
+    # locking. Those blocks belong to the base Retro UI and other independent
+    # add-ons; changing them can make selected address symbols disappear.
     write_if_changed(path, text)
 
 
